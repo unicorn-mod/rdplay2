@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎧 Radio</title>
+    <style>
+        /* Сохранил ваш стиль, добавив оформление для ползунка */
+        body { 
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #1e2a38 0%, #0f172a 100%);
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+        .player {
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(15px);
+            border-radius: 24px;
+            padding: 30px;
+            width: 90%;
+            max-width: 400px;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+        }
+        .station-name {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #60a5fa;
+        }
+        .stream-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .stream-btn:active { transform: scale(0.98); }
+        .stream-btn.primary { background: #3b82f6; border: none; }
+
+        /* Стили ползунка громкости */
+        .volume-container {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .volume-label { font-size: 14px; margin-bottom: 10px; opacity: 0.7; display: block; }
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: #3b82f6; /* Цвет ползунка */
+        }
+        
+        .status { margin-top: 15px; font-size: 13px; padding: 5px 10px; border-radius: 8px; }
+        .online { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
+        .offline { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+    </style>
+</head>
+<body>
+    <div class="player">
+        <div class="station-name" id="stationName">Radio Player</div>
+        
+        <div id="playerButtons"></div>
+
+        <div class="volume-container">
+            <span class="volume-label">🔊 Громкость</span>
+            <input type="range" id="volumeControl" min="0" max="1" step="0.01" value="0.7">
+        </div>
+        
+        <div class="status offline" id="connectionStatus">Выберите поток</div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const stationKey = urlParams.get('station') || 'record';
+        
+        // Глобальный объект аудио
+        let currentAudio = new Audio();
+        currentAudio.volume = 0.7;
+
+        const stations = {
+            'record': { name: 'Radio Record', streams: [{ name: 'Radio Record', url: 'https://radiorecord.hostingradio.ru/rr_main96.aacp' }] },
+            'relax': { name: 'Relax FM', streams: [{ name: 'Relax FM', url: 'http://ic7.101.ru:8000/v12_1' }] },
+            'monte': { name: 'Europa Plus', streams: [{ name: 'Premium', url: 'http://ep256.hostingradio.ru:8052/europaplus256.mp3' }] }
+        };
+
+        const data = stations[stationKey] || stations['record'];
+        document.getElementById('stationName').textContent = data.name;
+
+        // Создаем кнопки
+        data.streams.forEach((stream, index) => {
+            const btn = document.createElement('button');
+            btn.className = `stream-btn ${index === 0 ? 'primary' : ''}`;
+            btn.innerHTML = `▶️ ${stream.name}`;
+            btn.onclick = () => playStream(stream.url, data.name);
+            document.getElementById('playerButtons').appendChild(btn);
+        });
+
+        // Регулировка громкости
+        const volumeSlider = document.getElementById('volumeControl');
+        volumeSlider.addEventListener('input', (e) => {
+            currentAudio.volume = e.target.value;
+        });
+
+        function playStream(url, name) {
+            currentAudio.pause();
+            currentAudio.src = url;
+            
+            const status = document.getElementById('connectionStatus');
+            status.textContent = "Подключение...";
+            
+            currentAudio.play().then(() => {
+                status.textContent = "✅ В эфире";
+                status.className = "status online";
+                updateMediaSession(name);
+            }).catch(e => {
+                status.textContent = "❌ Ошибка доступа";
+                status.className = "status offline";
+            });
+        }
+
+        // Интеграция с системой (экран блокировки / шторка)
+        function updateMediaSession(name) {
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: name,
+                    artist: 'Trading Radio Feed',
+                    artwork: [{ src: 'cdn-icons-png.flaticon.com', sizes: '512x512', type: 'image/png' }]
+                });
+                
+                navigator.mediaSession.setActionHandler('play', () => currentAudio.play());
+                navigator.mediaSession.setActionHandler('pause', () => currentAudio.pause());
+            }
+        }
+    </script>
+</body>
+</html>
