@@ -100,7 +100,7 @@
             'queen': { name: 'Наше радио', streams: [{ name: 'Queen', url: 'https://streaming.exclusive.radio/er/queen/icecast.audio' }] }
             };
 
-        const data = stations[stationKey] || stations['record'];
+        const data = stations[stationKey] || stations['nazareth'];
         document.getElementById('stationName').textContent = data.name;
 
         // Создаем кнопки
@@ -119,26 +119,26 @@
         });
 
         // 1. Создаем ОДИН глобальный объект аудио, чтобы потоки не накладывались
-let currentAudio = new Audio();
-currentAudio.volume = 0.7; // Громкость по умолчанию
+        let currentAudio = new Audio();
+         currentAudio.volume = 0.5; // Громкость по умолчанию
 
 // 2. Ссылка на активный источник (чтобы можно было останавливать)
-let isPlaying = false;
+        let isPlaying = false;
 
-function playStream(url, name) {
-    const status = document.getElementById('connectionStatus');
-    const stationNameDisplay = document.getElementById('stationName');
+         function playStream(url, name) {
+                  const status = document.getElementById('connectionStatus');
+                  const stationNameDisplay = document.getElementById('stationName');
 
     // ОСТАНАВЛИВАЕМ предыдущую станцию перед запуском новой
-    currentAudio.pause();
-    currentAudio.src = ""; // Очищаем буфер
-    currentAudio.load();
+                  currentAudio.pause();
+                  currentAudio.src = ""; // Очищаем буфер
+                  currentAudio.load();
 
     // Настраиваем новый поток
-    currentAudio.src = url;
-    stationNameDisplay.textContent = name;
-    status.textContent = `Подключение к ${name}...`;
-    status.className = 'status offline';
+                  currentAudio.src = url;
+                  stationNameDisplay.textContent = name;
+                  status.textContent = `Подключение к ${name}...`;
+                status.className = 'status offline';
 
     currentAudio.play().then(() => {
         status.textContent = `✅ В эфире: ${name}`;
