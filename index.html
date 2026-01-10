@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎧 Trader Dynamic Radio</title>
+    <title>🎧 Trader Radio Pro</title>
     <style>
         :root {
             --primary: #4361ee;
@@ -35,20 +35,20 @@
         .player {
             background: rgba(255, 255, 255, 0.05);
             backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
             border-radius: 30px;
             padding: 25px;
             width: 88%;
             max-width: 360px;
             border: 1px solid rgba(255, 255, 255, 0.1);
             box-shadow: 0 25px 50px rgba(0,0,0,0.5);
-            display: flex;
-            flex-direction: column;
         }
 
         #visualizer {
             width: 100%;
             height: 60px;
             margin-bottom: 15px;
+            display: block;
         }
 
         .station-name {
@@ -61,15 +61,13 @@
             min-height: 22px;
         }
 
-        /* Контейнер со скроллом для списка станций */
         .btn-container {
-            max-height: 300px;
+            max-height: 280px;
             overflow-y: auto;
             padding-right: 5px;
             margin-bottom: 15px;
         }
 
-        /* Стилизация полосы прокрутки */
         .btn-container::-webkit-scrollbar { width: 4px; }
         .btn-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
 
@@ -86,12 +84,10 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            font-size: 15px;
+            font-size: 14px;
             text-align: left;
         }
 
-        .stream-btn:active { transform: scale(0.98); }
-        
         .stream-btn.active {
             background: var(--primary);
             box-shadow: 0 0 15px rgba(67, 97, 238, 0.4);
@@ -122,7 +118,7 @@
 
     <div class="player">
         <canvas id="visualizer"></canvas>
-        <div class="station-name" id="title">Выбор волны</div>
+        <div class="station-name" id="title">Select Station</div>
         
         <div class="btn-container" id="btnContainer"></div>
 
@@ -130,14 +126,14 @@
             <input type="range" id="volumeControl" min="0" max="1" step="0.01" value="0.7">
         </div>
         
-        <div class="status" id="status">TERMINAL READY</div>
+        <div class="status" id="status">TERMINAL ONLINE</div>
     </div>
 
     <script>
-    const audio = new Audio();
-    audio.volume = 0.7;
+        const audio = new Audio();
+        audio.volume = 0.7;
 
-    const stations = [
+        const stations = [
             { name: 'Radio Record', url: 'https://radiorecord.hostingradio.ru/rr_main96.aacp' },
             { name: 'Relax FM', url: 'http://ic7.101.ru:8000/v12_1' },
             { name: 'Наше радио', url: 'https://nashe1.hostingradio.ru/nashe-128.mp3' },
@@ -148,93 +144,66 @@
             { name: 'AC/DC', url: 'https://stream.pcradio.ru/ac_dc-hi' }
         ];
 
-    const canvas = document.getElementById('visualizer');
-    const ctx = canvas.getContext('2d');
-    let audioCtx, analyser, source, dataArray;
+        const canvas = document.getElementById('visualizer');
+        const ctx = canvas.getContext('2d');
+        let isPlaying = false;
 
-    function initAudioEngine() {
-        if (!audioCtx) {
-            // Создаем контекст
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            analyser = audioCtx.createAnalyser();
-            analyser.fftSize = 64;
-            dataArray = new Uint8Array(analyser.frequencyBinCount);
-            
-            // Пытаемся подключить источник. 
-            // Если упадет из-за CORS - музыка будет играть, но визуализации не будет
-            try {
-                source = audioCtx.createMediaElementSource(audio);
-                source.connect(analyser);
-                analyser.connect(audioCtx.destination);
-            } catch (e) {
-                console.warn("Visualizer connection failed due to CORS");
-            }
-            
-            draw();
-        }
-        
-        // Ключевой момент для мобильных устройств: возобновление контекста
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
-        }
-    }
+        // Генерация "фейковых" данных для анимации
+        let bars = Array(20).fill(0).map(() => Math.random() * 50);
 
-    function draw() {
-        requestAnimationFrame(draw);
-        if (!analyser) return;
-        
-        analyser.getByteFrequencyData(dataArray);
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        const barWidth = (canvas.width / dataArray.length) * 2.5;
-        let x = 0;
-        
-        dataArray.forEach(val => {
-            const barHeight = (val / 255) * canvas.height;
-            // Делаем цвет ярче, чтобы в Telegram было заметнее
-            ctx.fillStyle = `rgba(76, 201, 240, ${0.5 + (val/255)})`;
-            ctx.fillRect(x, canvas.height - barHeight, barWidth - 2, barHeight);
-            x += barWidth;
-        });
-    }
+        function draw() {
+            requestAnimationFrame(draw);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const barWidth = canvas.width / bars.length;
+            
+            bars.forEach((targetHeight, i) => {
+                // Если музыка играет, столбики стремятся к случайным значениям, умноженным на громкость
+                if (isPlaying && !audio.paused) {
+                    if (Math.random() > 0.8) bars[i] = Math.random() * canvas.height * audio.volume;
+                } else {
+                    bars[i] *= 0.9; // Плавное затухание при паузе
+                }
 
-    const container = document.getElementById('btnContainer');
-    stations.forEach(s => {
-        const btn = document.createElement('button');
-        btn.className = 'stream-btn';
-        btn.innerHTML = `<span>▶</span> ${s.name}`;
-        
-        btn.onclick = () => {
-            // Инициализация при каждом клике (для уверенности)
-            initAudioEngine();
-            
-            document.querySelectorAll('.stream-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            
-            // Включаем CORS-режим перед установкой SRC
-            audio.crossOrigin = "anonymous";
-            
-            audio.pause();
-            audio.src = s.url;
-            document.getElementById('title').textContent = s.name;
-            document.getElementById('status').textContent = "SYNCHRONIZING...";
-            
-            audio.play().then(() => {
-                document.getElementById('status').textContent = "SYSTEM LIVE";
-            }).catch(err => {
-                // Если Telegram блокирует поток из-за CORS
-                audio.removeAttribute("crossOrigin");
-                audio.load();
-                audio.play();
-                document.getElementById('status').textContent = "LIVE (COMPATIBILITY MODE)";
+                // Плавное движение текущей высоты к целевой
+                const currentH = bars[i];
+                ctx.fillStyle = `rgba(76, 201, 240, ${0.3 + (currentH/canvas.height)})`;
+                
+                // Отрисовка закругленных столбиков
+                const h = Math.max(2, currentH);
+                ctx.fillRect(i * barWidth, canvas.height - h, barWidth - 2, h);
             });
-        };
-        container.appendChild(btn);
-    });
+        }
+        draw();
 
-    document.getElementById('volumeControl').oninput = (e) => {
-        audio.volume = e.target.value;
-    };
-</script>
+        const container = document.getElementById('btnContainer');
+        stations.forEach(s => {
+            const btn = document.createElement('button');
+            btn.className = 'stream-btn';
+            btn.innerHTML = `<span>▶</span> ${s.name}`;
+            
+            btn.onclick = () => {
+                document.querySelectorAll('.stream-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                audio.pause();
+                audio.src = s.url;
+                document.getElementById('title').textContent = s.name;
+                document.getElementById('status').textContent = "CONNECTING...";
+                
+                audio.play().then(() => {
+                    isPlaying = true;
+                    document.getElementById('status').textContent = "LIVE STREAMING";
+                }).catch(() => {
+                    document.getElementById('status').textContent = "ERROR: CLICK AGAIN";
+                });
+            };
+            container.appendChild(btn);
+        });
+
+        document.getElementById('volumeControl').oninput = (e) => {
+            audio.volume = e.target.value;
+        };
+    </script>
 </body>
 </html>
