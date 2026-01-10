@@ -135,7 +135,6 @@
 
     <script>
     const audio = new Audio();
-    // Убираем crossOrigin по умолчанию, будем включать его только при необходимости
     audio.volume = 0.7;
 
     const stations = [
@@ -153,7 +152,33 @@
     const ctx = canvas.getContext('2d');
     let audioCtx, analyser, source, dataArray;
 
-    // Функция отрисовки (работает всегда, даже если данных нет)
+    function initAudioEngine() {
+        if (!audioCtx) {
+            // Создаем контекст
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 64;
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+            
+            // Пытаемся подключить источник. 
+            // Если упадет из-за CORS - музыка будет играть, но визуализации не будет
+            try {
+                source = audioCtx.createMediaElementSource(audio);
+                source.connect(analyser);
+                analyser.connect(audioCtx.destination);
+            } catch (e) {
+                console.warn("Visualizer connection failed due to CORS");
+            }
+            
+            draw();
+        }
+        
+        // Ключевой момент для мобильных устройств: возобновление контекста
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+    }
+
     function draw() {
         requestAnimationFrame(draw);
         if (!analyser) return;
@@ -166,30 +191,11 @@
         
         dataArray.forEach(val => {
             const barHeight = (val / 255) * canvas.height;
-            // Цвет столбиков
-            ctx.fillStyle = `rgba(76, 201, 240, ${0.4 + val/255})`;
+            // Делаем цвет ярче, чтобы в Telegram было заметнее
+            ctx.fillStyle = `rgba(76, 201, 240, ${0.5 + (val/255)})`;
             ctx.fillRect(x, canvas.height - barHeight, barWidth - 2, barHeight);
             x += barWidth;
         });
-    }
-
-    function initVisualizer() {
-        if (audioCtx) return;
-        
-        // Создаем контекст только после клика
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 64; 
-        
-        try {
-            source = audioCtx.createMediaElementSource(audio);
-            source.connect(analyser);
-            analyser.connect(audioCtx.destination);
-            dataArray = new Uint8Array(analyser.frequencyBinCount);
-            draw();
-        } catch (e) {
-            console.error("Visualizer error:", e);
-        }
     }
 
     const container = document.getElementById('btnContainer');
@@ -199,30 +205,28 @@
         btn.innerHTML = `<span>▶</span> ${s.name}`;
         
         btn.onclick = () => {
-            // Включаем звук в контексте (для iOS)
-            if (!audioCtx) initVisualizer();
-            if (audioCtx.state === 'suspended') audioCtx.resume();
+            // Инициализация при каждом клике (для уверенности)
+            initAudioEngine();
             
             document.querySelectorAll('.stream-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             
-            // Если станция не позволяет CORS, визуализатор будет молчать, но музыка играть будет
-            audio.crossOrigin = "anonymous"; 
+            // Включаем CORS-режим перед установкой SRC
+            audio.crossOrigin = "anonymous";
             
             audio.pause();
             audio.src = s.url;
             document.getElementById('title').textContent = s.name;
-            document.getElementById('status').textContent = "CONNECTING...";
+            document.getElementById('status').textContent = "SYNCHRONIZING...";
             
             audio.play().then(() => {
-                document.getElementById('status').textContent = "LIVE STREAMING";
-            }).catch(e => {
-                // Если ошибка CORS, пробуем переподключить без него (звук будет, анимации нет)
-                console.log("CORS error, trying without visualizer...");
+                document.getElementById('status').textContent = "SYSTEM LIVE";
+            }).catch(err => {
+                // Если Telegram блокирует поток из-за CORS
                 audio.removeAttribute("crossOrigin");
                 audio.load();
                 audio.play();
-                document.getElementById('status').textContent = "LIVE (NO VISUALS)";
+                document.getElementById('status').textContent = "LIVE (COMPATIBILITY MODE)";
             });
         };
         container.appendChild(btn);
