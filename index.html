@@ -93,8 +93,12 @@
         const stations = {
             'record': { name: 'Radio Record', streams: [{ name: 'Radio Record', url: 'https://radiorecord.hostingradio.ru/rr_main96.aacp' }] },
             'relax': { name: 'Relax FM', streams: [{ name: 'Relax FM', url: 'http://ic7.101.ru:8000/v12_1' }] },
-            'monte': { name: 'Europa Plus', streams: [{ name: 'Premium', url: 'http://ep256.hostingradio.ru:8052/europaplus256.mp3' }] }
-        };
+            'nashr': { name: 'Наше радио', streams: [{ name: 'Relax FM', url: 'https://nashe1.hostingradio.ru/nashe-128.mp3' }] },
+            'europa': { name: 'Europa Plus', streams: [{ name: 'Premium', url: 'http://ep256.hostingradio.ru:8052/europaplus256.mp3' }] },
+            'nazareth': { name: 'Наше радио', streams: [{ name: 'Nazareth', url: 'https://stream.pcradio.ru/Nazareth-hi' }] },
+            'aha': { name: 'Наше радио', streams: [{ name: 'A-ha', url: 'https://nl4.mystreaming.net/er/aha/icecast.audio' }] },
+            'queen': { name: 'Наше радио', streams: [{ name: 'Queen', url: 'https://streaming.exclusive.radio/er/queen/icecast.audio' }] }
+            };
 
         const data = stations[stationKey] || stations['record'];
         document.getElementById('stationName').textContent = data.name;
