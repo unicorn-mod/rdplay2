@@ -118,22 +118,46 @@
             currentAudio.volume = e.target.value;
         });
 
-        function playStream(url, name) {
-            currentAudio.pause();
-            currentAudio.src = url;
-            
-            const status = document.getElementById('connectionStatus');
-            status.textContent = "Подключение...";
-            
-            currentAudio.play().then(() => {
-                status.textContent = "✅ В эфире";
-                status.className = "status online";
-                updateMediaSession(name);
-            }).catch(e => {
-                status.textContent = "❌ Ошибка доступа";
-                status.className = "status offline";
-            });
-        }
+        // 1. Создаем ОДИН глобальный объект аудио, чтобы потоки не накладывались
+let currentAudio = new Audio();
+currentAudio.volume = 0.7; // Громкость по умолчанию
+
+// 2. Ссылка на активный источник (чтобы можно было останавливать)
+let isPlaying = false;
+
+function playStream(url, name) {
+    const status = document.getElementById('connectionStatus');
+    const stationNameDisplay = document.getElementById('stationName');
+
+    // ОСТАНАВЛИВАЕМ предыдущую станцию перед запуском новой
+    currentAudio.pause();
+    currentAudio.src = ""; // Очищаем буфер
+    currentAudio.load();
+
+    // Настраиваем новый поток
+    currentAudio.src = url;
+    stationNameDisplay.textContent = name;
+    status.textContent = `Подключение к ${name}...`;
+    status.className = 'status offline';
+
+    currentAudio.play().then(() => {
+        status.textContent = `✅ В эфире: ${name}`;
+        status.className = 'status online';
+        isPlaying = true;
+        updateMediaSession(name); // Обновляем инфо на экране блокировки
+    }).catch(e => {
+        console.error('Ошибка:', e);
+        status.textContent = `❌ Ошибка потока`;
+        status.className = 'status offline';
+    });
+}
+
+// 3. Привязываем ползунок к ОДНОМУ объекту аудио
+const volumeSlider = document.getElementById('volumeControl');
+volumeSlider.addEventListener('input', (e) => {
+    currentAudio.volume = e.target.value;
+});
+
 
         // Интеграция с системой (экран блокировки / шторка)
         function updateMediaSession(name) {
