@@ -134,11 +134,11 @@
     </div>
 
     <script>
-        const audio = new Audio();
-        audio.crossOrigin = "anonymous";
-        audio.volume = 0.7;
+    const audio = new Audio();
+    // Убираем crossOrigin по умолчанию, будем включать его только при необходимости
+    audio.volume = 0.7;
 
-        const stations = [
+    const stations = [
             { name: 'Radio Record', url: 'https://radiorecord.hostingradio.ru/rr_main96.aacp' },
             { name: 'Relax FM', url: 'http://ic7.101.ru:8000/v12_1' },
             { name: 'Наше радио', url: 'https://nashe1.hostingradio.ru/nashe-128.mp3' },
@@ -148,65 +148,88 @@
             { name: 'Queen', url: 'https://streaming.exclusive.radio/er/queen/icecast.audio' }
         ];
 
-        const canvas = document.getElementById('visualizer');
-        const ctx = canvas.getContext('2d');
-        let audioCtx, analyser, source, dataArray;
+    const canvas = document.getElementById('visualizer');
+    const ctx = canvas.getContext('2d');
+    let audioCtx, analyser, source, dataArray;
 
-        function initVisualizer() {
-            if (audioCtx) return;
-            try {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                analyser = audioCtx.createAnalyser();
-                source = audioCtx.createMediaElementSource(audio);
-                source.connect(analyser);
-                analyser.connect(audioCtx.destination);
-                analyser.fftSize = 64;
-                dataArray = new Uint8Array(analyser.frequencyBinCount);
-                draw();
-            } catch (e) { console.log("Visualizer blocked by browser policy"); }
-        }
-
-        function draw() {
-            requestAnimationFrame(draw);
-            if (!analyser) return;
-            analyser.getByteFrequencyData(dataArray);
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            const barWidth = (canvas.width / dataArray.length) * 2;
-            let x = 0;
-            dataArray.forEach(val => {
-                const barHeight = val / 4;
-                ctx.fillStyle = `rgba(76, 201, 240, ${0.3 + val/255})`;
-                ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-                x += barWidth + 4;
-            });
-        }
-
-        const container = document.getElementById('btnContainer');
-        stations.forEach(s => {
-            const btn = document.createElement('button');
-            btn.className = 'stream-btn';
-            btn.innerHTML = `<span>▶</span> ${s.name}`;
-            btn.onclick = () => {
-                if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-                initVisualizer();
-                
-                document.querySelectorAll('.stream-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                
-                audio.pause();
-                audio.src = s.url;
-                document.getElementById('title').textContent = s.name;
-                document.getElementById('status').textContent = "CONNECTING...";
-                audio.play().then(() => {
-                    document.getElementById('status').textContent = "ONLINE / STREAMING";
-                }).catch(e => {
-                    document.getElementById('status').textContent = "STREAM ERROR";
-                });
-            };
-            container.appendChild(btn);
+    // Функция отрисовки (работает всегда, даже если данных нет)
+    function draw() {
+        requestAnimationFrame(draw);
+        if (!analyser) return;
+        
+        analyser.getByteFrequencyData(dataArray);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        const barWidth = (canvas.width / dataArray.length) * 2.5;
+        let x = 0;
+        
+        dataArray.forEach(val => {
+            const barHeight = (val / 255) * canvas.height;
+            // Цвет столбиков
+            ctx.fillStyle = `rgba(76, 201, 240, ${0.4 + val/255})`;
+            ctx.fillRect(x, canvas.height - barHeight, barWidth - 2, barHeight);
+            x += barWidth;
         });
+    }
 
-        document.getElementById('volumeControl').oninput = (e) => audio.volume = e.target.value;
-    </script>
+    function initVisualizer() {
+        if (audioCtx) return;
+        
+        // Создаем контекст только после клика
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 64; 
+        
+        try {
+            source = audioCtx.createMediaElementSource(audio);
+            source.connect(analyser);
+            analyser.connect(audioCtx.destination);
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+            draw();
+        } catch (e) {
+            console.error("Visualizer error:", e);
+        }
+    }
+
+    const container = document.getElementById('btnContainer');
+    stations.forEach(s => {
+        const btn = document.createElement('button');
+        btn.className = 'stream-btn';
+        btn.innerHTML = `<span>▶</span> ${s.name}`;
+        
+        btn.onclick = () => {
+            // Включаем звук в контексте (для iOS)
+            if (!audioCtx) initVisualizer();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            document.querySelectorAll('.stream-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            // Если станция не позволяет CORS, визуализатор будет молчать, но музыка играть будет
+            audio.crossOrigin = "anonymous"; 
+            
+            audio.pause();
+            audio.src = s.url;
+            document.getElementById('title').textContent = s.name;
+            document.getElementById('status').textContent = "CONNECTING...";
+            
+            audio.play().then(() => {
+                document.getElementById('status').textContent = "LIVE STREAMING";
+            }).catch(e => {
+                // Если ошибка CORS, пробуем переподключить без него (звук будет, анимации нет)
+                console.log("CORS error, trying without visualizer...");
+                audio.removeAttribute("crossOrigin");
+                audio.load();
+                audio.play();
+                document.getElementById('status').textContent = "LIVE (NO VISUALS)";
+            });
+        };
+        container.appendChild(btn);
+    });
+
+    document.getElementById('volumeControl').oninput = (e) => {
+        audio.volume = e.target.value;
+    };
+</script>
 </body>
 </html>
