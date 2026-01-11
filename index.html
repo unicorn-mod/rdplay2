@@ -131,7 +131,7 @@
 
     <script>
         const audio = new Audio();
-        audio.volume = 0.7;
+        audio.volume = 0.5;
 
         const stations = [
             { name: 'Radio Record', url: 'https://radiorecord.hostingradio.ru/rr_main96.aacp' },
@@ -208,6 +208,28 @@
         document.getElementById('volumeControl').oninput = (e) => {
             audio.volume = e.target.value;
         };
+        const DB_URL = "https://radiouse-a2d06-default-rtdb.europe-west1.firebasedatabase.app/";
+
+function sendHeartbeat() {
+    if (isPlaying && !audio.paused) {
+        // Берем ID пользователя из Telegram
+        const user = window.Telegram.WebApp.initDataUnsafe.user;
+        const uid = user ? user.id : "anonymous_" + Math.floor(Math.random() * 1000);
+        const name = user ? (user.first_name + " " + (user.last_name || "")) : "Unknown";
+        const station = document.getElementById('title').textContent;
+
+        fetch(`${DB_URL}${uid}.json`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                name: name,
+                station: station,
+                last_seen: Date.now()
+            })
+        }).catch(e => console.log("Stat error"));
+    }
+}
+setInterval(sendHeartbeat, 30000); // Раз в 30 секунд
+
     </script>
 </body>
 </html>
