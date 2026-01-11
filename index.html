@@ -124,7 +124,7 @@
         <div class="btn-container" id="btnContainer"></div>
 
         <div class="volume-box">
-            <input type="range" id="volumeControl" min="0" max="1" step="0.01" value="0.7">
+            <input type="range" id="volumeControl" min="0" max="1" step="0.01" value="0.5">
         </div>
         
         <div class="status" id="status">TERMINAL ONLINE</div>
@@ -202,7 +202,7 @@
     document.getElementById('volumeControl').oninput = (e) => { audio.volume = e.target.value; };
 
     // --- БЛОК СТАТИСТИКИ ---
-    // ВАЖНО: Добавлен путь /presence/
+   
     const DB_URL = "https://radiouse-a2d06-default-rtdb.europe-west1.firebasedatabase.app/presence/";
 
     function sendHeartbeat() {
